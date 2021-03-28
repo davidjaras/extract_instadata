@@ -5,6 +5,9 @@ from .mock_request_response import get_mock_data
 
 class TestRequestData(TestCase):
 
+    def test_get_instagram_user_data(self):
+        pass
+
     def test_extract_user_data(self):
         self.mock_data = get_mock_data()
 
@@ -16,3 +19,12 @@ class TestRequestData(TestCase):
         self.assertIn('followers', functions.extract_user_data(self.mock_data))
         self.assertIn('following', functions.extract_user_data(self.mock_data))
         self.assertIn('is_private', functions.extract_user_data(self.mock_data))
+    
+    def test_get_instagram_user_posts(self):
+        pass
+    
+    def test_extract_post_data(self):
+        pass
+
+    def test_read_json(self):
+        pass

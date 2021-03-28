@@ -37,5 +37,5 @@ class SimpleTest(unittest.TestCase):
         # Check that the response is 200 OK.
         self.assertEqual(response.status_code, 200)
 
-        # Check that the rendered context contains 5 customers.
+        # Check that the rendered context is a dict.
         self.assertIsInstance(response.context['results'], dict)

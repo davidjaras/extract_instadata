@@ -1,18 +1,52 @@
+{% extends 'get_from_instagram/base.html' %}
+
+{% block container %}
+
 <section class="py-1 text-center container">
     <div class="row py-lg-5">
     <div class="col-lg-6 col-md-8 mx-auto">
-        <h1 class="fw-light">Search instagram user</h1>
+        <h1 class="fw-light">Insert Instagram user</h1>
+        <p></p>
         <form>
-            <input type="text" id="searcher" name="searcher" class="form-control" placeholder="Buscar..." autocomplete="off" autofocus>
+            <input type="text" id="searcher" name="searcher" class="form-control" placeholder="Search..." autocomplete="off" autofocus>
             <p class="my-4">
-            <button type="submit" class="btn btn-primary">Buscar</button>
+            <button type="submit" class="btn btn-primary">Search</button>
         </form>
         </p>
     </div>
     </div>
 </section>
 
+{% if success %}
 
-<br>
-<br>
-<h3> Username: {{ results }} </h3>
+    <div class="container py-5" id="featured-3">
+        <h2 class="pb-2 border-bottom">Results:</h2>
+        <div class="row g-5 py-5">
+            <div class="feature col-md-4">
+                <div class="feature-icon bg-primary bg-gradient">
+                    <svg class="bi" width="1em" height="1em"><use xlink:href="#people-circle"/></svg>
+                </div>
+                <h2>{{ user.username }}</h2>
+                <p>
+                    <strong>Full name: </strong>{{ user.full_name }}<br>
+                    <strong>Followers: </strong>{{ user.followers }} <br>
+                    <strong>Following: </strong>{{ user.following }} <br>
+                    <strong>Instagram ID: </strong>{{ user.instagram_id }} <br>
+                </p>
+                {% if user.is_private %}
+                    This profile is private.
+                {% else %}
+                    Public profile.
+                    <a href='{% url "details" user.id %}' class="icon-link">
+                        Go to details
+                        <svg class="bi" width="1em" height="1em"><use xlink:href="#chevron-right"/></svg>
+                    </a>
+                {% endif %}
+            
+            </div>
+
+        </div>
+    </div>
+{% endif %}
+
+{% endblock %}

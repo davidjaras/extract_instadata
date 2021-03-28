@@ -1,0 +1,79 @@
+{% extends 'get_from_instagram/base.html' %}
+
+{% block container %}
+
+<section class="py-5 text-center container">
+    <div class="row py-lg-5">
+      <div class="col-lg-6 col-md-8 mx-auto">
+        <h1 class="fw-light">{{ instagram_user.username }}</h1>
+        <p class="lead text-muted">
+            {{ instagram_user.full_name }}<br>
+            <strong>Followers: </strong>{{ instagram_user.followers }} |
+            <strong>Following: </strong>{{ instagram_user.following }} <br>
+            Instagram ID: {{ instagram_user.instagram_id }} <br>
+        </p>
+      </div>
+    </div>
+</section>
+
+<div class="album py-5 bg-light">
+    <div class="container">
+
+      <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
+
+        {% for post in posts %}
+            <div class="col">
+                <div class="card shadow-sm">
+                {% if post.is_video %}
+                    <video controls width="100%" height="300" muted>
+                        <source src="{{post.url}}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                {% else %}
+                    <img class="bd-placeholder-img card-img-top" width="50%" height="300" src='{{post.url}}'>
+                {% endif %}
+                    <div class="card-body">
+                    <p class="card-text">
+                    <p class="fw-bold">{{ post.instagram_post.likes_amount }} likes - {{ post.instagram_post.comments_amount }} comments</p>
+                    Caption: {{ post.instagram_post.caption }}
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ post.instagram_post.pub_date }}</small>
+                        <small class="text-muted">post ID: {{ post.instagram_post.post_id }}</small>
+                    </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+
+      </div>
+    </div>
+
+    <nav aria-label="Page navigation example">
+        <ul class="pagination justify-content-center mt-5">
+            {% if posts.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1">&laquo; first</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ posts.previous_page_number }}">Past</a>
+                </li>
+            {% endif %}
+            
+            <li class="page-item"><a class="page-link">Page {{ posts.number }} of {{ posts.paginator.num_pages }}</a></li>
+
+            {% if posts.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ posts.next_page_number }}">Next</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ posts.paginator.num_pages }}">last &raquo;</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+
+</div>
+
+
+{% endblock %}
