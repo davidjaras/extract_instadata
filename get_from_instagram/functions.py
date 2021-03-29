@@ -1,34 +1,98 @@
-import requests
+# Django
+from django.db.utils import IntegrityError
+
+# Python
 import os
 import re
-from json.decoder import JSONDecodeError
-from django.conf import settings
 import json
+import requests
 from datetime import datetime
+from json.decoder import JSONDecodeError
+
+# Project
+from get_from_instagram.vars import URL, HEADERS
 from .models import InstagramUser, InstagramPost, Media
 
 
-def get_instagram_user_data(search):
+''' Views Functions. '''
+
+
+def get_instagram_user_data(search=None, error=None):
+    '''
+    Make the request to Instagram and return a json response.
+    If something is wrong return 'error'.
+    If username doesn´t exists return None.
+    '''
     results = {}
     if search is not None:
         try:
-            url = f'https://www.instagram.com/{search}/?__a=1'
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.90 Safari/537.36',
-                'accept': 'application/json'
-            }
-            response = requests.get(url, headers=headers).json()
+            url = URL.replace('$username$', search)
+            response = requests.get(url, headers=HEADERS).json()
             results = extract_user_data(response)
         except JSONDecodeError:
-            results['error'] = 'Response is not json type'
+            error = 'Response is not json type'
         except ConnectionError:
-            results['error'] = 'Error trying to connect with Instagram.'
+            error = 'Error trying to connect with Instagram.'
         finally:
-            return results
-    return None
+            return results, error
+    return None, None
+
+
+def get_instagram_user_posts(instagram_user, error=None):
+    '''
+    Funtion to download Instagram user's posts.
+    This create a json file with data related to posts.
+    '''
+    if instagram_user.get('is_private') is False:
+        usern = instagram_user.get('username')
+        cmd = f'instagram-scraper --media-metadata {usern} -d media/{usern}'
+        os.system(cmd)
+        path = f'media/{usern}/{usern}.json'
+        posts, error = extract_post_data(path)
+        return posts, error
+
+    elif instagram_user.get('is_private') is True:
+        return {}, error
+
+    else:
+        return None, 'Get instagram user data failed. Verify account exist.'
+
+
+def save_in_database(user, posts={}, error=None):
+    '''
+    Function to save in Database instagram user data.
+    Format variables and storage.
+    '''
+    try:
+        instagram_user = save_user_info(user)
+    except Exception:
+        error = 'Unable to save user in database.'
+        return False, error
+
+    try:
+        if posts.get('posts') is not None:
+            for post in posts.get('posts'):
+                urls = post['urls']
+                post.pop('urls')
+                post['instagram_user'] = instagram_user
+                instagram_post, new_data = save_post_info(post)
+                if new_data:
+                    save_media(urls, instagram_user, instagram_post)
+    except Exception:
+        error = 'Unable to save posts in database.'
+        return False, error
+
+    return True, error
+
+
+''' Internal functions that supports Views Functions. '''
 
 
 def extract_user_data(json_res):
+    '''
+    Funtion to filter and format instagram user data.
+    Return a new dictionary with the importat field for this app.
+    '''
     data = {}
 
     try:
@@ -46,15 +110,11 @@ def extract_user_data(json_res):
     return data
 
 
-def get_instagram_user_posts(username):
-    cmd = f'instagram-scraper --media-metadata {username} -d media/{username}'
-    os.system(cmd)
-    path = f'media/{username}/{username}.json'
-    posts = extract_post_data(path)
-    return posts
-
-
-def extract_post_data(path):
+def extract_post_data(path, error=None):
+    '''
+    Funtion to filter and format instagram posts data.
+    Return a new dictionary with the importat field for this app.
+    '''
     data = read_json(path)
     posts = {'posts': []}
 
@@ -62,26 +122,31 @@ def extract_post_data(path):
         for data_post in data['GraphImages']:
             post = {}
 
-            try:
-                post['post_id'] = data_post['id']
-                pre_caption = str(data_post['edge_media_to_caption']['edges'])
-                post['caption'] = (pre_caption.replace("[{'node': {'text': '", "")
-                                            .replace("'}}]", ""))
-                post['pub_date'] =  datetime.fromtimestamp(data_post['taken_at_timestamp'])
-                post['likes_amount'] = data_post['edge_media_preview_like']['count']
-                post['comments_amount'] = data_post['edge_media_to_comment']['count']
-                post['views_amount'] = data_post.get('video_view_count')
-                post['urls'] = data_post['urls']
+            post['post_id'] = data_post['id']
+            pre_caption = str(data_post['edge_media_to_caption']['edges'])
+            post['caption'] = (pre_caption
+                               .replace("[{'node': {'text': '", "")
+                               .replace("'}}]", ""))
+            post['pub_date'] = datetime.fromtimestamp(
+                                    data_post['taken_at_timestamp']
+                                )
+            post['likes_amount'] = (
+                data_post['edge_media_preview_like']['count']
+            )
+            post['comments_amount'] = (
+                data_post['edge_media_to_comment']['count']
+            )
+            post['views_amount'] = data_post.get('video_view_count')
+            post['urls'] = data_post['urls']
 
-                posts['posts'].append(post)
-            except Exception:
-                pass  # Not append if an error happens 
-            
+            posts['posts'].append(post)
+
     except KeyError as e:
-        posts['error'] = ('Bad response by posts source. '
-                         'Json response does not have the correct fields.')
-    
-    return posts
+        error = ('Bad response by posts source. '
+                 'Json response does not have the correct fields.')
+        return {}, error
+
+    return posts, error
 
 
 def read_json(filename):
@@ -96,33 +161,60 @@ def read_json(filename):
         return e
 
 
-def save_in_database(user, posts):
+def save_user_info(user):
+    '''Save instagram user data.'''
+    try:
+        instagram_user = InstagramUser.objects.get(username=user['username'])
+        instagram_user.followers = user['followers']
+        instagram_user.following = user['following']
+        instagram_user.is_private = user['is_private']
 
-    # save instagram user data
-    instagram_user = InstagramUser.objects.create(**user)
-    instagram_user.save()
+    except InstagramUser.DoesNotExist:
+        instagram_user = InstagramUser.objects.create(**user)
 
-    # save posts related to instagram user data
-    for post in posts:
-        urls = post['urls']
-        post.pop('urls')
-        post['instagram_user'] = instagram_user
+    finally:
+        instagram_user.save()
+
+    return instagram_user
+
+
+def save_post_info(post):
+    '''Save instagram post data.'''
+    is_new_data = True
+
+    try:
+        instagram_post = InstagramPost.objects.get(post_id=post['post_id'])
+        instagram_post.caption = post['caption']
+        instagram_post.likes_amount = post['likes_amount']
+        instagram_post.comments_amount = post['comments_amount']
+        instagram_post.views_amount = post['views_amount']
+        is_new_data = False
+
+    except InstagramPost.DoesNotExist:
         instagram_post = InstagramPost.objects.create(**post)
+
+    finally:
         instagram_post.save()
 
-        for url in urls:
-            is_video = False
-            filename = re.findall(r'/\w*\.[jm][p][g4]', url)[0]
-            ext = filename[-3:]  # last 3 caracters that contains extention
+    return instagram_post, is_new_data
 
-            if ext == 'mp4':
-                is_video = True
 
-            local_path = f'media/{instagram_user.username}{filename}'
-            instagram_post.media_set.create(url=url,
-                                            local_path=local_path,
-                                            is_video=is_video,
-                                            instagram_user=instagram_post.instagram_user)
-    
-    return True
+def save_media(urls, instagram_user, instagram_post):
+    '''Save instagram post data.'''
+    for url in urls:
+        is_video = False
+        filename = re.findall(r'/\w*\.[jm][p][g4]', url)[0]
 
+        # validate file extension
+        ext = filename[-3:]  # last 3 caracters that contains extension
+        if ext == 'mp4':
+            is_video = True
+
+        local_path = f'media/{instagram_user.username}{filename}'
+        instagram_post.media_set.create(
+            url=url,
+            local_path=local_path,
+            is_video=is_video,
+            instagram_user=instagram_post.instagram_user
+        )
+    return 'Done'

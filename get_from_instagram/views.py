@@ -6,45 +6,57 @@ from django.core.paginator import Paginator
 import requests
 
 # Project
-from .functions import get_instagram_user_data, get_instagram_user_posts, save_in_database
+import get_from_instagram.functions as f
 from .models import InstagramUser, InstagramPost, Media
 
 
 def index_get_from_instagram(request):
+    '''
+    Index page view.
+    Depending on the request search profile online or in database.
+    '''
     searcher = request.GET.get('searcher')
-    posts = []
+    error = None
+    user = None
+    posts = None
     success = False
-    user = ""
 
-    instagram_user = get_instagram_user_data(searcher)
-    #instagram_user = {'username': 'davidjaras', 'full_name': 'David Jaramillo S', 'instagram_id': '1944345247', 'followers': 176, 'following': 252, 'is_private': False} # DELETE THIS LINE
+    instagram_user, error = f.get_instagram_user_data(searcher)
 
     if instagram_user is not None:
-        if(instagram_user.get('is_private') is False):
-            posts = get_instagram_user_posts(instagram_user.get('username'))
-            success = save_in_database(instagram_user, posts.get('posts'))
-    
+        posts, error = f.get_instagram_user_posts(instagram_user)
+
+    if posts is not None:
+        success, error = f.save_in_database(instagram_user, posts)
+
     if success:
-        user = InstagramUser.objects.get(instagram_id=instagram_user.get('instagram_id'))
-    
-    return render(request, 'get_from_instagram/index.html',
-                    {'instagram_user': instagram_user, 'posts': posts, 'success': success, 'user':user})
+        instagram_user_id = instagram_user.get('instagram_id')
+        user = InstagramUser.objects.get(instagram_id=instagram_user_id)
+
+    return render(request,
+                  'get_from_instagram/index.html',
+                  {'success': success,
+                   'user': user,
+                   'error': error})
 
 
-def get_details(request, instagram_user_id):
+def get_details(request, instagram_user_id=None):
+    '''
+    Detail page view.
+    Depending on the request instagram_user_id get data from database.
+    '''
     posts = []
-    
+    instagram_user = {}
     try:
-        if instagram_user_id is not None:
-            instagram_user = InstagramUser.objects.get(pk=instagram_user_id)
-            posts = Media.objects.filter(instagram_user=instagram_user_id)
-            paginator = Paginator(posts, 21)
+        instagram_user = InstagramUser.objects.get(pk=instagram_user_id)
+        posts = Media.objects.filter(instagram_user=instagram_user_id)
+    except InstagramUser.DoesNotExist:
+        instagram_user['error'] = 'Instagram user not found.'
+    else:
+        paginator = Paginator(posts, 30)
+        page_number = request.GET.get('page')
+        posts = paginator.get_page(page_number)
 
-            page_number = request.GET.get('page')
-            posts = paginator.get_page(page_number)
-
-            return render(request, 'get_from_instagram/details.html', {'posts':posts, 'instagram_user':instagram_user})
-    except InstagramPost.DoesNotExist:
-        raise Http404("Post does not exist")
-
-    return redirect(request, 'get_from_instagram/index.html')
+    return render(request,
+                  'get_from_instagram/details.html',
+                  {'posts': posts, 'instagram_user': instagram_user})

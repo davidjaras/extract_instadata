@@ -49,4 +49,10 @@
     </div>
 {% endif %}
 
+{% if error %}
+    <div class="container alert alert-warning" role="alert">
+    {{ error }}
+    </div>
+{% endif %}
+
 {% endblock %}
