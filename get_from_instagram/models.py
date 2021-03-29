@@ -28,6 +28,4 @@ class Media(models.Model):
     local_path = models.CharField(max_length=500)
     is_video = models.BooleanField(default=False)
     instagram_post = models.ForeignKey(InstagramPost, on_delete=models.CASCADE)
-    instagram_user = models.ForeignKey(InstagramUser,
-                                       on_delete=models.CASCADE,
-                                       default=0)
+    instagram_user = models.ForeignKey(InstagramUser, on_delete=models.CASCADE)
