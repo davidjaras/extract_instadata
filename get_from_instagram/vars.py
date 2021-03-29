@@ -9,5 +9,6 @@ user_agent = (
 )
 HEADERS = {
     'User-Agent': user_agent,
-    'accept': 'application/json'
+    'accept': 'application/json',
+    "cookie": "sessionid=2996373389%3AxCVV42lJPuykrs%3A7"
 }
