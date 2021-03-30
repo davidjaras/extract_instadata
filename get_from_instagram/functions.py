@@ -45,7 +45,7 @@ def get_instagram_user_posts(instagram_user, error=None):
     '''
     if instagram_user.get('is_private') is False:
         usern = instagram_user.get('username')
-        cmd = f'instagram-scraper --media-metadata {usern} -d media/{usern}'
+        cmd = f'instagram-scraper --media-metadata {usern} -d media/{usern} --media-types none'
         os.system(cmd)
         path = f'media/{usern}/{usern}.json'
         posts, error = extract_post_data(path)
