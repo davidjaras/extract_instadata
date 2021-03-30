@@ -17,6 +17,16 @@ from .models import InstagramUser, InstagramPost, Media
 ''' Views Functions. '''
 
 
+def clean_searcher(searcher):
+    if searcher is None or searcher == '':
+        return None
+
+    searcher = searcher.replace('@', '')
+    searcher = searcher.strip().lower()
+
+    return searcher
+
+
 def get_instagram_user_data(search=None, error=None):
     '''
     Make the request to Instagram and return a json response.
@@ -43,19 +53,24 @@ def get_instagram_user_posts(instagram_user, error=None):
     Funtion to download Instagram user's posts.
     This create a json file with data related to posts.
     '''
-    if instagram_user.get('is_private') is False:
-        usern = instagram_user.get('username')
-        cmd = f'instagram-scraper --media-metadata {usern} -d media/{usern} --media-types none'
-        os.system(cmd)
-        path = f'media/{usern}/{usern}.json'
-        posts, error = extract_post_data(path)
-        return posts, error
+    try:
+        if instagram_user.get('is_private') is False:
+            usern = instagram_user.get('username')
 
-    elif instagram_user.get('is_private') is True:
-        return {}, error
+            cmd = f'instagram-scraper {usern} --media-metadata --latest -d media/{usern}'
+            os.system(cmd)
+            path = f'media/{usern}/{usern}.json'
 
-    else:
-        return None, 'Get instagram user data failed. Verify account exist.'
+            posts, error = extract_post_data(path)
+            return posts, error
+
+        elif instagram_user.get('is_private') is True:
+            return {}, error
+
+        else:
+            return None, 'Get user data failed. Verify account exist.'
+    except Exception:
+        return None, 'something went wrong. Collect posts data failed.'
 
 
 def save_in_database(user, posts={}, error=None):
@@ -165,6 +180,7 @@ def save_user_info(user):
     '''Save instagram user data.'''
     try:
         instagram_user = InstagramUser.objects.get(username=user['username'])
+        instagram_user.full_name = user['full_name']
         instagram_user.followers = user['followers']
         instagram_user.following = user['following']
         instagram_user.is_private = user['is_private']

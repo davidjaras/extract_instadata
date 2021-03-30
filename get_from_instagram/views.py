@@ -15,7 +15,7 @@ def index_get_from_instagram(request):
     Index page view.
     Depending on the request search profile online or in database.
     '''
-    searcher = request.GET.get('searcher')
+    searcher = f.clean_searcher(request.GET.get('searcher'))
     error = None
     user = None
     posts = None
